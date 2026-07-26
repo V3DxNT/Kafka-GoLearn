@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 
+	"github.com/IBM/sarama"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -53,14 +55,33 @@ func createComment(c *fiber.Ctx) error {
 	return err
 }
 
-func PushCommentToQueue(topic string, message []byte) {
+func PushCommentToQueue(topic string, message []byte) error {
 	brokerUrl := []string{"localhost:29092"}
 	producer, err := ConnectProducer(brokerUrl)
 
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	defer producer.Close()
+	msg := &sarama.ProducerMessage{
+		Topic: topic,
+		Value: sarama.StringEncoder(message),
+	}
+
+	partition, offset, err := producer.SendMessage(msg)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	fmt.Printf("Topic %s Partition: %d, Offset: %d\n", partition, offset)
+	return nil
 }
 
-func ConnectProducer(brokerUrl []string) (srama.SyncProducer, error) {
-	config := saram.NewConfig()
+func ConnectProducer(brokerUrl []string) (sarama.SyncProducer, error) {
+	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 
 	config.Producer.RequiredAcks = sarama.WaitForAll
