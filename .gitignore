@@ -1,0 +1,42 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Go build output
+/bin/
+/build/
+/dist/
+/out/
+
+# Go workspace
+go.work.sum
+
+# Coverage
+*.out
+coverage.out
+coverage.html
+
+# Dependency directories (only if you vendor dependencies)
+vendor/
+
+# GoLand / IntelliJ IDEA
+.idea/
+*.iml
+
+# VS Code (optional if you also use VS Code)
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
