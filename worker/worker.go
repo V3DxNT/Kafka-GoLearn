@@ -1,96 +1,69 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/IBM/sarama"
-	"github.com/gofiber/fiber/v2"
 )
 
-type comment struct {
-	Text string `form:"text" json:"text"`
-}
-
 func main() {
-	app := fiber.New()
-	api := app.Group("/api/v1")
+	topic := "comments"
+	worker, err := connectConsumer([]string{"localhost:29092"})
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	api.Post("/comment", createComment)
+	consumer, err := worker.ConsumePartition(topic, 0, sarama.OffsetOldest)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	app.Listen(":3000")
+	fmt.Println("Sarama consumer up and running!...")
+
+	signChan := make(chan os.Signal, 1)
+	signal.Notify(signChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+	msgCount := 0
+	doneChan := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case err := <-consumer.Errors():
+				log.Printf("Consumer error: %s\n", err)
+
+			case msg := <-consumer.Messages():
+				msgCount++
+				fmt.Println("Received", msgCount, string(msg.Topic), string(msg.Value))
+
+			case <-signChan:
+				fmt.Println("Interrupt signal received")
+				doneChan <- struct{}{}
+			}
+		}
+	}()
+
+	<-doneChan
+	fmt.Println("Processed", msgCount, "messages")
+
+	if err := worker.Close(); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func createComment(c *fiber.Ctx) error {
-
-	cmt := new(comment)
-	if err := c.BodyParser(cmt); err != nil {
-		log.Println(err)
-		c.Status(400).JSON(&fiber.Map{
-			"success": false,
-			"message": err,
-		})
-
-		return err
-	}
-
-	cmtInBytes, err := json.Marshal(cmt)
-	PushCommentToQueue("comments", cmtInBytes)
-
-	c.JSON(&fiber.Map{
-		"success": true,
-		"message": "Comment Pushed Successfully",
-		"comment": cmt,
-	})
-
-	if err != nil {
-		c.Status(500).JSON(&fiber.Map{
-			"success": false,
-			"message": err,
-		})
-		return err
-	}
-
-	return err
-}
-
-func PushCommentToQueue(topic string, message []byte) error {
-	brokerUrl := []string{"localhost:29092"}
-	producer, err := ConnectProducer(brokerUrl)
-
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	defer producer.Close()
-	msg := &sarama.ProducerMessage{
-		Topic: topic,
-		Value: sarama.StringEncoder(message),
-	}
-
-	partition, offset, err := producer.SendMessage(msg)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	fmt.Printf("Topic %s Partition: %d, Offset: %d\n", partition, offset)
-	return nil
-}
-
-func ConnectProducer(brokerUrl []string) (sarama.SyncProducer, error) {
+func connectConsumer(brokerUrls []string) (sarama.Consumer, error) {
 	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
+	config.Consumer.Return.Errors = true
+	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	config.Producer.RequiredAcks = sarama.WaitForAll
-
-	config.Producer.Retry.Max = 5
-
-	conn, err := sarama.NewSyncProducer(brokerUrl, config)
+	conn, err := sarama.NewConsumer(brokerUrls, config)
 	if err != nil {
 		return nil, err
 	}
+
 	return conn, nil
 }

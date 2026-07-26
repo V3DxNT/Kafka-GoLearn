@@ -3,11 +3,14 @@ module github.com/V3DxNT/Kafka-GoLearn
 go 1.26.2
 
 require (
-	github.com/IBM/sarama v1.60.0 // indirect
+	github.com/IBM/sarama v1.60.0
+	github.com/gofiber/fiber/v2 v2.52.14
+)
+
+require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.7.0 // indirect
-	github.com/gofiber/fiber/v2 v2.52.14 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
