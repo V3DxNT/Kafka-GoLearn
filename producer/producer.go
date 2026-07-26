@@ -17,7 +17,7 @@ func main() {
 	app := fiber.New()
 	api := app.Group("/api/v1")
 
-	api.Post("/comment", createComment)
+	api.Post("/comments", createComment)
 
 	app.Listen(":3000")
 }
